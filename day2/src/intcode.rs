@@ -7,7 +7,21 @@ pub struct IntCode {
 }
 
 impl IntCode {
-    pub fn run_program(&mut self) {
+    pub fn new(file_name: &str) -> Self {
+        let mut file = File::open(file_name).unwrap();
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).unwrap();
+        IntCode::parse_to_program(&buf)
+    }
+
+    pub fn run_patched_program(&mut self, noun: usize, verb: usize) -> usize {
+        self.poke(1, noun);
+        self.poke(2, verb);
+        self.run_program();
+        self.peek(0)
+    }
+
+    fn run_program(&mut self) {
         let mut pc = 0;
         loop {
             let opcode = self.program[pc];
@@ -25,30 +39,16 @@ impl IntCode {
         }
     }
 
-    pub fn new(file_name: &str) -> Self {
-        let mut file = File::open(file_name).unwrap();
-        let mut buf = String::new();
-        file.read_to_string(&mut buf).unwrap();
-        IntCode::parse_to_program(&buf)
-    }
-
     fn parse_to_program(buf: &str) -> Self {
         IntCode { program: buf.split_terminator(',').map(|s| s.parse().unwrap()).collect() }
     }
 
-    pub fn poke(&mut self, pos: usize, value: usize) {
+    fn poke(&mut self, pos: usize, value: usize) {
         self.program[pos] = value;
     }
 
-    pub fn peek(&self, pos: usize) -> usize {
+    fn peek(&self, pos: usize) -> usize {
         self.program[pos]
-    }
-
-    pub fn run_patched_program(&mut self, noun: usize, verb: usize) -> usize {
-        self.poke(1, noun);
-        self.poke(2, verb);
-        self.run_program();
-        self.peek(0)
     }
 }
 
