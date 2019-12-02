@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IntCode {
     program: Vec<usize>
 }
@@ -42,6 +42,13 @@ impl IntCode {
 
     pub fn peek(&self, pos: usize) -> usize {
         self.program[pos]
+    }
+
+    pub fn run_patched_program(&mut self, noun: usize, verb: usize) -> usize {
+        self.poke(1, noun);
+        self.poke(2, verb);
+        self.run_program();
+        self.peek(0)
     }
 }
 
