@@ -33,7 +33,7 @@ impl IntCode {
             match opcode {
                 1 => self.program[op3] = self.program[op1] + self.program[op2],
                 2 => self.program[op3] = self.program[op1] * self.program[op2],
-                _ => panic!("Invalid op-code, pc {}, opcode {}", pc, opcode)
+                _ => panic!("Invalid op-code {} at pc {}", opcode, pc)
             }
             pc += 4;
         }
