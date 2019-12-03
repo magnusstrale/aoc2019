@@ -70,6 +70,10 @@ impl Segment {
 
         None
     }
+
+    pub fn length(&self) -> i64 {
+        i64::abs(self.x_stop - self.x_start) + i64::abs(self.y_stop - self.y_start)
+    }
 }
 
 pub struct Wire {
@@ -92,24 +96,42 @@ impl Wire {
         x.abs() + y.abs()
     }
 
-    fn intersection_points_distance(&self, segment: &Segment) -> Vec<i64> {
+    fn intersection_points(&self, segment: &Segment) -> Vec<(i64, i64)> {
         let mut points = Vec::new();
         for seg in &self.segments {
             match seg.intersect(segment) {
-                Some((x, y)) => points.push(Wire::manhattan_distance(x, y)),
+                Some((x, y)) => points.push((x, y)),
                 None => ()
             }
         }
         points
     }
 
+    fn steps_to_point(&self, x: i64, y: i64) -> i64 {
+        // if horizontal && y == y_start && x is between x_start, x_stop
+        //      exit with last length abs(x_start - x)
+        //  -or-
+        // if vertical && x == x_start && y is betweem y_start, y_stop
+        //      exit with last length abs(y_start - y)
+        0
+    }
+
     pub fn min_intersection_distance(&self, other: &Wire) -> i64 {
-        let mut distance: Vec<i64> = Vec::new();
+        let mut intersections: Vec<(i64, i64)> = Vec::new();
         for s in &other.segments {
-            let mut dist_for_seg = self.intersection_points_distance(&s);
-            distance.append(&mut dist_for_seg);
+            let mut intersections_for_seg = self.intersection_points(&s);
+            intersections.append(&mut intersections_for_seg);
         }
-        distance.into_iter().fold(9999, |min, x| cmp::min(min, x))
+        intersections.into_iter().map(|(x, y)| Wire::manhattan_distance(x, y)).fold(9999, |min, x| cmp::min(min, x))
+    }
+
+    pub fn min_wire_steps(&self, other: &Wire) -> i64 {
+        let mut intersections: Vec<(i64, i64)> = Vec::new();
+        for s in &other.segments {
+            let mut intersections_for_seg = self.intersection_points(&s);
+            intersections.append(&mut intersections_for_seg);
+        }
+        intersections.into_iter().map(|(x, y)| self.steps_to_point(x, y) + &other.steps_to_point(x, y)).fold(9999, |min, x| cmp::min(min, x))
     }
 }
 
@@ -149,7 +171,7 @@ mod tests {
     }
 
     #[test]
-    fn wire_with_U1_L2_D3_R4_should_have_four_segments_and_end_up_at_3_minus2() {
+    fn wire_with_u1_l2_d3_r4_should_have_four_segments_and_end_up_at_3_minus2() {
         let w = Wire::new("U1,L2,D3,R4");
 
         assert_eq!(w.segments.len(), 4);
@@ -182,5 +204,83 @@ mod tests {
 
         assert_eq!(s1.intersect(&s2), None);
         assert_eq!(s2.intersect(&s1), None); // Should be reflexive
+    }
+
+    #[test]
+    fn segment_0_0_1_0_has_length_1() {
+        let s = Segment { x_start: 0, y_start: 0, x_stop: 1, y_stop: 0 }; 
+        assert_eq!(s.length(), 1);
+    }
+
+    #[test]
+    fn segment_0_0_minus1_0_has_length_1() {
+        let s = Segment { x_start: 0, y_start: 0, x_stop: -1, y_stop: 0 }; 
+        assert_eq!(s.length(), 1);
+    }
+
+    #[test]
+    fn segment_0_1_0_minus1_has_length_2() {
+        let s = Segment { x_start: 0, y_start: 1, x_stop: 0, y_stop: -1 }; 
+        assert_eq!(s.length(), 2);
+    }
+
+    #[test]
+    fn segment_0_1_0_100_has_length_99() {
+        let s = Segment { x_start: 0, y_start: 1, x_stop: 0, y_stop: 100 }; 
+        assert_eq!(s.length(), 99);
+    }
+
+    #[test]
+    fn example1_part1_should_give_distance_6() {
+        let w1 = Wire::new("R8,U5,L5,D3");
+        let w2 = Wire::new("U7,R6,D4,L4");
+        assert_eq!(w1.min_intersection_distance(&w2), 6);
+    }
+
+    #[test]
+    fn example2_part1_should_give_distance_159() {
+        let w1 = Wire::new("R75,D30,R83,U83,L12,D49,R71,U7,L72");
+        let w2 = Wire::new("U62,R66,U55,R34,D71,R55,D58,R83");
+        assert_eq!(w1.min_intersection_distance(&w2), 159);
+    }
+
+    #[test]
+    fn example3_part1_should_give_distance_135() {
+        let w1 = Wire::new("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51");
+        let w2 = Wire::new("U98,R91,D20,R16,D67,R40,U7,R15,U6,R7");
+        assert_eq!(w1.min_intersection_distance(&w2), 135);
+    }
+
+    #[test]
+    fn wire1_steps_to_point_3_3_is_20() {
+        let w1 = Wire::new("R8,U5,L5,D3");
+        assert_eq!(w1.steps_to_point(3, 3), 20);
+    }
+
+    #[test]
+    fn wire2_steps_to_point_3_3_is_20() {
+        let w2 = Wire::new("U7,R6,D4,L4");
+        assert_eq!(w2.steps_to_point(3, 3), 20);
+    }
+
+    #[test]
+    fn example1_part2_should_give_30_steps() {
+        let w1 = Wire::new("R8,U5,L5,D3");
+        let w2 = Wire::new("U7,R6,D4,L4");
+        assert_eq!(w1.min_wire_steps(&w2), 30);
+    }
+
+    #[test]
+    fn example2_part2_should_give_610_steps() {
+        let w1 = Wire::new("R75,D30,R83,U83,L12,D49,R71,U7,L72");
+        let w2 = Wire::new("U62,R66,U55,R34,D71,R55,D58,R83");
+        assert_eq!(w1.min_wire_steps(&w2), 610);
+    }
+
+    #[test]
+    fn example3_part2_should_give_410_steps() {
+        let w1 = Wire::new("R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51");
+        let w2 = Wire::new("U98,R91,D20,R16,D67,R40,U7,R15,U6,R7");
+        assert_eq!(w1.min_wire_steps(&w2), 410);
     }
 }
