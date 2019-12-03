@@ -108,12 +108,20 @@ impl Wire {
     }
 
     fn steps_to_point(&self, x: i64, y: i64) -> i64 {
-        // if horizontal && y == y_start && x is between x_start, x_stop
-        //      exit with last length abs(x_start - x)
-        //  -or-
-        // if vertical && x == x_start && y is betweem y_start, y_stop
-        //      exit with last length abs(y_start - y)
-        0
+        let mut steps = 0;
+        for s in &self.segments {
+            if s.is_horizontal() && y == s.y_start && Segment::is_between(x, s.x_start, s.x_stop) {
+                steps += i64::abs(x - s.x_start);
+                break;
+            }
+
+            if x == s.x_start && Segment::is_between(y, s.y_start, s.y_stop) {
+                steps += i64::abs(y - s.y_start);
+                break;
+            }
+            steps += s.length();
+        }
+        steps
     }
 
     pub fn min_intersection_distance(&self, other: &Wire) -> i64 {
@@ -122,7 +130,7 @@ impl Wire {
             let mut intersections_for_seg = self.intersection_points(&s);
             intersections.append(&mut intersections_for_seg);
         }
-        intersections.into_iter().map(|(x, y)| Wire::manhattan_distance(x, y)).fold(9999, |min, x| cmp::min(min, x))
+        intersections.into_iter().map(|(x, y)| Wire::manhattan_distance(x, y)).fold(9999999, |min, x| cmp::min(min, x))
     }
 
     pub fn min_wire_steps(&self, other: &Wire) -> i64 {
@@ -131,7 +139,7 @@ impl Wire {
             let mut intersections_for_seg = self.intersection_points(&s);
             intersections.append(&mut intersections_for_seg);
         }
-        intersections.into_iter().map(|(x, y)| self.steps_to_point(x, y) + &other.steps_to_point(x, y)).fold(9999, |min, x| cmp::min(min, x))
+        intersections.into_iter().map(|(x, y)| self.steps_to_point(x, y) + &other.steps_to_point(x, y)).fold(9999999, |min, x| cmp::min(min, x))
     }
 }
 

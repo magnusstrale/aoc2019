@@ -7,12 +7,16 @@ use wire::Wire;
 
 fn main() {
     let file_name = "src/day3.txt";
-
     let mut lines = read_file(&file_name);
+
     let w1 = Wire::new(&lines.next().unwrap().unwrap());
     let w2 = Wire::new(&lines.next().unwrap().unwrap());
-    let mindist = w1.min_intersection_distance(&w2);
-    println!("Minimum distance is {}", mindist);
+
+    let min_dist = w1.min_intersection_distance(&w2);
+    println!("Minimum distance is {}", min_dist);
+
+    let min_steps = w1.min_wire_steps(&w2);
+    println!("Minimum steps {}", min_steps)
 }
 
 
