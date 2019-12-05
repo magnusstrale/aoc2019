@@ -6,9 +6,11 @@ fn main() {
     let original = IntCode::new(&input_file);
 
     println!("Part 1 - test AC");
-    original.clone().run_program(1);
+    let output = original.clone().run_program(1);
+    println!("{:?}", output);
 
     println!("\nPart 2 - test thermal radiator");
-    original.clone().run_program(5);
+    let output = original.clone().run_program(5);
+    println!("{:?}", output);
 }
 
