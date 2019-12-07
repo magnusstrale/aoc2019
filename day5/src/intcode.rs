@@ -32,21 +32,19 @@ impl IntCode {
 
     pub fn run_program(&mut self, input: isize) -> Vec<isize> {
         let mut output = Vec::new();
-        self.pc = 0;
         loop {
-            let opcode = self.opcode();
-            if opcode == 99 { return output; }
             //println!("pc: {} opcode: {}  [{}, {}, {}]", self.pc, self.program[self.pc], self.program[self.pc + 1], self.program[self.pc + 2], self.program[self.pc + 3]);
-            match opcode {
+            match self.opcode() {
                 1 => { self.poke(self.p_w(3), self.p(1) + self.p(2)); self.pc += 4; },
                 2 => { self.poke(self.p_w(3), self.p(1) * self.p(2)); self.pc += 4; },
                 3 => { self.poke(self.p_w(1), input); self.pc += 2; },
                 4 => { output.push(self.p(1)); self.pc += 2; },
                 5 => if self.p(1) != 0 { self.pc = self.p(2) as usize; } else { self.pc += 3 },
                 6 => if self.p(1) == 0 { self.pc = self.p(2) as usize; } else { self.pc += 3 },
-                7 => { self.poke(self.p_w(3), (self.p(1) < self.p(2)) as isize); self.pc += 4; },
-                8 => { self.poke(self.p_w(3), (self.p(1) == self.p(2)) as isize); self.pc += 4; },
-                _ => panic!("Invalid op-code {} at pc {}", opcode, self.pc)
+                7 => { self.bool_poke(self.p_w(3), self.p(1) < self.p(2)); self.pc += 4; },
+                8 => { self.bool_poke(self.p_w(3), self.p(1) == self.p(2)); self.pc += 4; },
+                99 => return output,
+                _ => panic!("Invalid op-code {} at pc {}", self.opcode(), self.pc)
             }
         }
     }
@@ -58,6 +56,10 @@ impl IntCode {
     fn poke(&mut self, pos: usize, value: isize) {
         //println!("Poke at {}, changing from {} to {}", pos, self.program[pos], value);
         self.program[pos] = value;
+    }
+
+    fn bool_poke(&mut self, pos: usize, value: bool) {
+        self.poke(pos, value as isize);
     }
 }
 
