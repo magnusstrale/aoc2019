@@ -11,7 +11,7 @@ pub struct IntCode {
 #[derive(Debug, PartialEq)]
 pub enum IntCodeState {
     Done,
-    Output(isize, bool),
+    Output(isize),
     NeedInput,
     Pending,
 }
@@ -19,14 +19,12 @@ pub enum IntCodeState {
 pub struct IntCodeRoutine {
     code: IntCode,
     input_queue: VecDeque<isize>,
-    input: Option<isize>,
-    state: IntCodeState,
-    id: usize
+    state: IntCodeState
 }
 
 impl IntCodeRoutine {
-    pub fn new(code: &IntCode, id: usize) -> Self {
-        IntCodeRoutine { code: code.clone(), input_queue: VecDeque::new(), input: None, state: IntCodeState::Pending, id }
+    pub fn new(code: &IntCode) -> Self {
+        IntCodeRoutine { code: code.clone(), input_queue: VecDeque::new(), state: IntCodeState::Pending }
     }
 
     pub fn execute(&mut self) {
@@ -34,31 +32,24 @@ impl IntCodeRoutine {
             //println!("In execute id {}, state {:?}, input: {:?} input_queue {:?}", self.id, self.state, self.input, self.input_queue);
             match self.state {
                 IntCodeState::Done => return,
-                IntCodeState::NeedInput => match self.input_queue.pop_front() {
-                    None => { self.input = None; return; },
-                    Some(input) => {
-                        self.input = Some(input);
-                        self.state = IntCodeState::Pending; 
-                    }
-                },
-                IntCodeState::Output(_, input_consumed) => { 
-                    if input_consumed { self.input = self.input_queue.pop_front(); }; 
+                IntCodeState::NeedInput => return,
+                IntCodeState::Output(_) => { 
                     return; 
                 },
-                IntCodeState::Pending => self.state = self.code.run_resumable_program(self.input)
+                IntCodeState::Pending => self.state = self.code.run_resumable_program(&mut self.input_queue)
             }
         }
     }
 
     pub fn output_data(&mut self) -> isize {
         match self.state {
-            IntCodeState::Output(result, _) => { self.state = IntCodeState::Pending; result }
+            IntCodeState::Output(result) => { self.state = IntCodeState::Pending; result }
             _ => panic!("No data to output")
         }
     }
 
     pub fn input_data(&mut self, input: isize) {
-        if self.input == None { self.input = Some(input); } else { self.input_queue.push_back(input); }
+        self.input_queue.push_back(input);
         if self.state == IntCodeState::NeedInput { self.state = IntCodeState::Pending; }
     }
 }
@@ -88,18 +79,14 @@ impl IntCode {
 
     pub fn run_program(&mut self, input: Vec<isize>) -> Vec<isize> {
         let mut output = Vec::new();
-        let mut input_index = 0;
+        let mut input_queue: VecDeque<isize> = input.into_iter().collect();
         loop {
-            let param = if input_index < input.len() { Some(input[input_index]) } else { None };
-            let state = self.run_resumable_program(param);
+            let state = self.run_resumable_program(&mut input_queue);
             // println!("{:?}", state);
             match state {
                 IntCodeState::Done => return output,
-                IntCodeState::NeedInput => input_index += 1,
-                IntCodeState::Output(result, input_consumed) => {
-                    output.push(result);
-                    if input_consumed { input_index += 1; }
-                }
+                IntCodeState::NeedInput => panic!("Not enough input data"),
+                IntCodeState::Output(result) => output.push(result),
                 IntCodeState::Pending => ()
             }
         }
@@ -109,27 +96,21 @@ impl IntCode {
         if self.pc + i < self.program.len() { self.program[self.pc + i] } else { -99999 }
     }
 
-    pub fn run_resumable_program(&mut self, input: Option<isize>) -> IntCodeState {
-        let mut input_consumed = false;
+    pub fn run_resumable_program(&mut self, input: &mut VecDeque<isize>) -> IntCodeState {
         loop {
             // println!("pc: {} opcode: {}  [{}, {}, {}]", self.pc, self.dump_at(0), self.dump_at(1), self.dump_at(2), self.dump_at(3));
             // println!("{:?}", self.program);
             match self.opcode() {
                 1 => { self.poke(self.p_w(3), self.p(1) + self.p(2)); self.pc += 4; },
                 2 => { self.poke(self.p_w(3), self.p(1) * self.p(2)); self.pc += 4; },
-                3 => if input_consumed { 
-                    return IntCodeState::NeedInput; 
-                } else {
-                    match input {
-                        None => return IntCodeState::NeedInput,
-                        Some(val) => {
-                            self.poke(self.p_w(1), val); 
-                            input_consumed = true; 
-                            self.pc += 2;
-                        }
+                3 => match input.pop_front() {
+                    None => return IntCodeState::NeedInput,
+                    Some(val) => {
+                        self.poke(self.p_w(1), val); 
+                        self.pc += 2;
                     }
                 },
-                4 => { let result = IntCodeState::Output(self.p(1), input_consumed); self.pc += 2; return result; },
+                4 => { let result = IntCodeState::Output(self.p(1)); self.pc += 2; return result; },
                 5 => if self.p(1) != 0 { self.pc = self.p(2) as usize; } else { self.pc += 3 },
                 6 => if self.p(1) == 0 { self.pc = self.p(2) as usize; } else { self.pc += 3 },
                 7 => { self.bool_poke(self.p_w(3), self.p(1) < self.p(2)); self.pc += 4; },
@@ -194,10 +175,8 @@ pub fn max_amplifier_output(program: &IntCode) -> isize {
 fn amplifier_output_with_feedback(program: &IntCode, sequence: Vec<isize>) -> isize {
     let mut amps = VecDeque::new();
     let mut first = true;
-    let mut id = 0;
     for phase in sequence {
-        let mut p = IntCodeRoutine::new(program, id);
-        id += 1;
+        let mut p = IntCodeRoutine::new(program);
         p.input_data(phase);
         if first { p.input_data(0); first = false; }
         amps.push_back(p);
@@ -210,7 +189,7 @@ fn amplifier_output_with_feedback(program: &IntCode, sequence: Vec<isize>) -> is
             //println!("Id: {} State {:?} input {:?} input_queue {:?}", active_amp.id, active_amp.state, active_amp.input, active_amp.input_queue);
             match active_amp.state {
                 IntCodeState::Pending => active_amp.execute(),
-                IntCodeState::Output(_,_) => { 
+                IntCodeState::Output(_) => { 
                     let mut next_amp = amps.pop_front().unwrap();
                     last_output = active_amp.output_data();
                     next_amp.input_data(last_output);
@@ -299,7 +278,7 @@ mod tests {
             2,   3, 11,  0,
             99, 30, 40, 50];
         let mut p = IntCode { program, pc: 0 };
-        p.run_resumable_program(None);
+        p.run_resumable_program(&mut VecDeque::new());
         let final_state = vec![
             3500, 9, 10, 70,
             2, 3, 11, 0,
@@ -313,7 +292,7 @@ mod tests {
             1, 0, 0,  0,
             99];
         let mut p = IntCode { program, pc: 0 };
-        p.run_resumable_program(None);
+        p.run_resumable_program(&mut VecDeque::new());
         let final_state = vec![
             2, 0, 0, 0,
             99];
@@ -326,7 +305,7 @@ mod tests {
             2, 3, 0, 3,
             99];
         let mut p = IntCode { program, pc: 0 };
-        p.run_resumable_program(None);
+        p.run_resumable_program(&mut VecDeque::new());
         let final_state = vec![
             2, 3, 0, 6,
             99];
@@ -339,7 +318,7 @@ mod tests {
             2, 4, 4, 5,
             99, 0];
         let mut p = IntCode { program, pc: 0 };
-        p.run_resumable_program(None);
+        p.run_resumable_program(&mut VecDeque::new());
         let final_state = vec![
             2, 4, 4, 5,
             99, 9801];
@@ -353,7 +332,7 @@ mod tests {
             99, 5, 6, 0,
             99];
         let mut p = IntCode { program, pc: 0 };
-        p.run_resumable_program(None);
+        p.run_resumable_program(&mut VecDeque::new());
         let final_state = vec![
             30, 1, 1, 4,
             2, 5, 6, 0,
@@ -377,14 +356,16 @@ mod tests {
     #[test]
     fn given_opcode_3_program_with_input_52_should_write_52_to_end() {
         let mut p = IntCode::parse_to_program("3,3,99,0");
-        p.run_resumable_program(Some(52));
+        let mut input = VecDeque::new();
+        input.push_back(52);
+        p.run_resumable_program(&mut input);
         assert_eq!(52, p.program[3]);
     }
 
     #[test]
     fn given_mixed_parameter_mode_should_write_99_at_end() {
         let mut p = IntCode::parse_to_program("1002,4,3,4,33");
-        p.run_resumable_program(None);
+        p.run_resumable_program(&mut VecDeque::new());
         assert_eq!(99, p.program[4]);
     }
 
