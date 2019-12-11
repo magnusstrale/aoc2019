@@ -1,12 +1,6 @@
 use std::cmp;
 use std::usize;
 
-const EPSILON: f64 = 0.00001;
-
-fn approx_eq(a: f64, b: f64) -> bool {
-    (a - b).abs() < EPSILON
-}
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point {
     pub x: usize,
@@ -27,7 +21,8 @@ impl Point {
         let (dx_s, dy_s) = p1.delta(*self);
         if dx_s == 0 || dy_s == 0 { return false; } // self is on horizontal/vertical line from p1, but we know that there is no horizontal/vertical line p1 to p2
         
-        approx_eq(dx as f64 / dy as f64, dx_s as f64 / dy_s as f64)
+        // Crosswise extension by denominator - 
+        dx*dy_s == dy*dx_s
     }
 
     fn delta(&self, other: Point) -> (isize, isize) {
