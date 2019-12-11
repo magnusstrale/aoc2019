@@ -22,12 +22,12 @@ pub struct PaintRobot {
     position: Point,
     dx: isize,
     dy: isize, 
-    painted_info: HashMap<Point, isize>
+    panel_info: HashMap<Point, isize>
 }
 
 impl PaintRobot {
     pub fn new() -> Self { 
-        Self { position: Point::new(0, 0), dx: 0, dy: 1, painted_info: HashMap::new() }
+        Self { position: Point::new(0, 0), dx: 0, dy: 1, panel_info: HashMap::new() }
     }
 
     fn turn_left(&mut self) {
@@ -63,11 +63,11 @@ impl PaintRobot {
     }
 
     pub fn paint_here(&mut self, color: isize) {
-        self.painted_info.entry(self.position).and_modify(|panel| *panel = color).or_insert(color);
+        self.panel_info.entry(self.position).and_modify(|panel| *panel = color).or_insert(color);
     }
 
     fn get_color_at(&self, position: Point) -> isize {
-        *self.painted_info.get(&position).unwrap_or(&0)
+        *self.panel_info.get(&position).unwrap_or(&0)
     }
 
     pub fn get_color_here(&self) -> isize {
@@ -75,13 +75,13 @@ impl PaintRobot {
     }
 
     pub fn count_colored_panels(&self) -> usize {
-        self.painted_info.len()
+        self.panel_info.len()
     }
 
     fn get_min_max_coord(&self) -> (Point, Point) {
         let mut min = Point::new(0, 0);
         let mut max = Point::new(0, 0);
-        for (p, _) in &self.painted_info {
+        for (p, _) in &self.panel_info {
             min.x = cmp::min(min.x, p.x);
             min.y = cmp::min(min.y, p.y);
             max.x = cmp::max(max.x, p.x);
@@ -91,7 +91,7 @@ impl PaintRobot {
         (min, max)
     }
 
-    pub fn print_paint(&self) {
+    pub fn print_panels(&self) {
         let (min, max) = self.get_min_max_coord();
         for y in (min.y..=max.y).rev() {
             for x in min.x..=max.x {
@@ -117,7 +117,7 @@ mod tests {
         sut.turn_and_move(0);
 
         assert_eq!(Point::new(-1, 0), sut.position);
-        let spot = sut.painted_info.get(&Point::new(0,0)).unwrap();
+        let spot = sut.panel_info.get(&Point::new(0,0)).unwrap();
         assert_eq!(1, *spot);
 
         assert_eq!(1, sut.count_colored_panels());

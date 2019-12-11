@@ -4,22 +4,22 @@ mod intcode;
 use intcode::{IntCode, IntCodeState};
 use paint_robot::PaintRobot;
 
+const FILE_NAME: &str = "src/day11.txt";
+
 fn main() {
-    let file_name = "src/day11.txt";
-    let mut program = IntCode::file_to_program(&file_name);
     let mut robot = PaintRobot::new();
-    paint(&mut program, &mut robot);
+    paint(&mut robot);
     println!("Colored {} tiles at least once", robot.count_colored_panels());
 
     println!("Re-running on white tile");
-    let mut program = IntCode::file_to_program(&file_name);
     let mut robot = PaintRobot::new();
     robot.paint_here(1);
-    paint(&mut program, &mut robot);
-    robot.print_paint();
+    paint(&mut robot);
+    robot.print_panels();
 }
 
-fn paint(program: &mut IntCode, robot: &mut PaintRobot) {
+fn paint(robot: &mut PaintRobot) {
+    let mut program = IntCode::file_to_program(&FILE_NAME);
     let mut paint = true;
     loop {
         match &program.run_slice() {
