@@ -3,16 +3,16 @@ use std::usize;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Point {
-    pub x: usize,
-    pub y: usize
+    pub x: isize,
+    pub y: isize
 }
 
 impl Point {
-    pub fn new(x: usize, y: usize) -> Self { Self { x, y} }
-    fn x_min(&self, other: Point) -> usize { cmp::min(self.x, other.x) }
-    fn x_max(&self, other: Point) -> usize { cmp::max(self.x, other.x) }
-    fn y_min(&self, other: Point) -> usize { cmp::min(self.y, other.y) }
-    fn y_max(&self, other: Point) -> usize { cmp::max(self.y, other.y) }
+    pub fn new(x: isize, y: isize) -> Self { Self { x, y} }
+    fn x_min(&self, other: Point) -> isize { cmp::min(self.x, other.x) }
+    fn x_max(&self, other: Point) -> isize { cmp::max(self.x, other.x) }
+    fn y_min(&self, other: Point) -> isize { cmp::min(self.y, other.y) }
+    fn y_max(&self, other: Point) -> isize { cmp::max(self.y, other.y) }
 
     fn is_between(&self, p1: Point, p2: Point) -> bool {
         let (dx, dy) = p1.delta(p2);
@@ -30,6 +30,14 @@ impl Point {
         let dy = (self.y as isize) - (other.y as isize);
         (dx, dy)
     }
+
+    fn value_clockwise_increasing(&self, base: Point) -> isize {
+        // Need to scale and convert into isize since f64 does not implement Ord and thus cannot have 
+        // full ordering (looking at you, ugly-ass IEEE fp standard). For the purpose here this workaround
+        // is enough, since all we want to know is the relative angles.
+        // minimum is at Y > 0, X = 0
+       ((-(self.x as f64 - base.x as f64)).atan2(self.y as f64 - base.y as f64) * 10_000_f64) as isize
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -37,32 +45,15 @@ pub struct Vector {
     asteroid: Point,
     dx: isize,
     dy: isize,
-    slope: f64
+//    slope: f64
 }
 
 impl Vector {
     pub fn new(base: Point, asteroid: Point) -> Self { 
         let (dx, dy) = asteroid.delta(base);
-        let s = if dx == 0 || dy == 0 { 0f64 } else { dx as f64 / dy as f64 };
-        Vector { asteroid, dx, dy, slope: s }
+        Vector { asteroid, dx, dy }
     }
 
-    fn slope(&self) -> f64 {
-        match self.quadrant() {
-            1 => if self.dy == 0 { 10_000_f64 } else { self.dx as f64 / -self.dy as f64 },
-            2 => if self.dx == 0 { 10_000_f64 } else { self.dy as f64 / self.dx as f64 },
-            3 => if self.dy == 0 { 10_000_f64 } else { -self.dx as f64 / self.dy as f64 },
-            4 => if self.dx == 0 { 10_000_f64 } else { self.dy as f64 / self.dx as f64 },
-            _ => panic!("Quadrants...")
-        }
-    }
-
-    fn quadrant(&self) -> usize {
-        if self.dy < 0 && self.dx >= 0 { return 1; }
-        if self.dy >= 0 && self.dx >= 0 { return 2; }
-        if self.dy >= 0 && self.dx < 0 { return 3; }
-        4
-    }
 }
 
 #[derive(Debug)]
@@ -90,14 +81,14 @@ impl Map {
 
         for y in corner1.y_min(corner2)..=corner1.y_max(corner2) {
             for x in corner1.x_min(corner2)..=corner1.x_max(corner2) {
-                if self.map[y][x] { asteroids.push(Point::new(x, y)); }
+                if self.map[y as usize][x as usize] { asteroids.push(Point::new(x, y)); }
             }
         }
         asteroids
     }
 
     fn all_asteroids(&self) -> Vec<Point> {
-        self.asteroids_in_area(Point::new(0, 0), Point::new(self.width - 1, self.height - 1))
+        self.asteroids_in_area(Point::new(0, 0), Point::new((self.width - 1) as isize, (self.height - 1) as isize))
     }
 
     fn is_visible_from(&self, base: Point, asteroid: Point) -> bool {
@@ -122,8 +113,8 @@ impl Map {
         (best_location, max_count)
     }
 
-    fn all_vectors_from(&self, base: Point, quadrant: usize) -> Vec<Vector> {
-        self.all_asteroids().into_iter().filter(|a| *a != base).map(|asteroid| Vector::new(base, asteroid)).filter(|v| v.quadrant() == quadrant).collect()
+    fn all_vectors_from(&self, base: Point) -> Vec<Vector> {
+        self.all_asteroids().into_iter().filter(|a| *a != base).map(|asteroid| Vector::new(base, asteroid)).collect()
     }
 
     pub fn vaporize_asteroids(&mut self, base: Point) -> Vec<Point> {
@@ -131,14 +122,12 @@ impl Map {
         let asteroid_count = self.all_asteroids().len();
         while vaporized.len() < asteroid_count - 1 {
             for gone in &vaporized {
-                self.map[gone.y][gone.x] = false;
+                self.map[gone.y as usize][gone.x as usize] = false;
             }
-            for quadrant in 1..=4 {
-                let mut all_asteroid_vectors: Vec<Vector> = self.all_vectors_from(base, quadrant);
-                all_asteroid_vectors.sort_by_key(|v| (v.slope() * 10000_f64) as isize);
-                for vector in all_asteroid_vectors {
-                    if self.is_visible_from(base, vector.asteroid) { vaporized.push(vector.asteroid); }
-                }
+            let mut all_asteroid_vectors: Vec<Vector> = self.all_vectors_from(base);
+            all_asteroid_vectors.sort_by_key(|v| v.asteroid.value_clockwise_increasing(base));
+            for vector in all_asteroid_vectors {
+                if self.is_visible_from(base, vector.asteroid) { vaporized.push(vector.asteroid); }
             }
         }
 
@@ -150,6 +139,10 @@ impl Map {
 mod tests {
     use super::*;
 
+    #[test]
+    fn atan2_and_stuff() {
+        // We want to use atan2 to give 0 for y > 0, x = 0, pi/2 for y = 0, x > 0, pi/2 for 
+    }
     #[test]
     fn part2_sample2_should_vaporize_36() {
         let mut sut = Map::new(&vec![
