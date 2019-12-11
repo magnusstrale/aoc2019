@@ -261,9 +261,3 @@ impl IntCode {
         format!("{:5}: {}", self.pc, s)
     }
 }
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}

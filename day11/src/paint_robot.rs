@@ -63,15 +63,18 @@ impl PaintRobot {
     }
 
     pub fn paint_here(&mut self, color: isize) {
-        let spot = self.painted_info.entry(self.position).or_insert(0);
-        *spot = color;
+        self.painted_info.entry(self.position).and_modify(|panel| *panel = color).or_insert(color);
+    }
+
+    fn get_color_at(&self, position: Point) -> isize {
+        *self.painted_info.get(&position).unwrap_or(&0)
     }
 
     pub fn get_color_here(&self) -> isize {
-        *self.painted_info.get(&self.position).unwrap_or(&0)
+        self.get_color_at(self.position)
     }
 
-    pub fn colored_panels(&self) -> usize {
+    pub fn count_colored_panels(&self) -> usize {
         self.painted_info.len()
     }
 
@@ -92,7 +95,7 @@ impl PaintRobot {
         let (min, max) = self.get_min_max_coord();
         for y in (min.y..=max.y).rev() {
             for x in min.x..=max.x {
-                let color = *self.painted_info.get(&Point::new(x, y)).unwrap_or(&0);
+                let color = self.get_color_at(Point::new(x, y));
                 if color == 0 { print!(" ") } else { print!("X") }
             }
             println!();
@@ -109,7 +112,7 @@ mod tests {
         let mut sut = PaintRobot::new();
 
         assert_eq!(0, sut.get_color_here());
-        assert_eq!(0, sut.colored_panels());
+        assert_eq!(0, sut.count_colored_panels());
         sut.paint_here(1);
         sut.turn_and_move(0);
 
@@ -117,7 +120,7 @@ mod tests {
         let spot = sut.painted_info.get(&Point::new(0,0)).unwrap();
         assert_eq!(1, *spot);
 
-        assert_eq!(1, sut.colored_panels());
+        assert_eq!(1, sut.count_colored_panels());
     }
 
     #[test]

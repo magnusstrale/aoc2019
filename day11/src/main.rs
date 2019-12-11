@@ -1,6 +1,6 @@
 mod paint_robot;
 mod intcode;
-mod old_intcode_tests;
+
 use intcode::{IntCode, IntCodeState};
 use paint_robot::PaintRobot;
 
@@ -9,7 +9,7 @@ fn main() {
     let mut program = IntCode::file_to_program(&file_name);
     let mut robot = PaintRobot::new();
     paint(&mut program, &mut robot);
-    println!("Colored {} tiles at least once", robot.colored_panels());
+    println!("Colored {} tiles at least once", robot.count_colored_panels());
 
     println!("Re-running on white tile");
     let mut program = IntCode::file_to_program(&file_name);
