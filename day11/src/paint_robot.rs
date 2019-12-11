@@ -90,9 +90,9 @@ impl PaintRobot {
 
     pub fn print_paint(&self) {
         let (min, max) = self.get_min_max_coord();
-        for y in min.y..=max.y {
+        for y in (min.y..=max.y).rev() {
             for x in min.x..=max.x {
-                let color = *self.painted_info.get(&Point::new(x, max.y - y + min.y)).unwrap_or(&0);
+                let color = *self.painted_info.get(&Point::new(x, y)).unwrap_or(&0);
                 if color == 0 { print!(" ") } else { print!("X") }
             }
             println!();
